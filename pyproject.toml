@@ -1,0 +1,36 @@
+[project]
+name = "formsolution-integration-api"
+version = "0.1.0"
+description = ""
+authors = [
+    { name = "Dimitri Signe", email = "signesignekarldimitri@gmail.com" }
+]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi (>=0.116.1,<0.117.0)",
+    "uvicorn[standard] (>=0.35.0,<0.36.0)",
+    "python-dotenv (>=1.1.1,<2.0.0)",
+    "pymongo (>=4.14.1,<5.0.0)",
+    "motor (>=3.7.1,<4.0.0)",
+    "pydantic-settings (>=2.10.1,<3.0.0)",
+    "httpx (>=0.28.1,<0.29.0)",
+    "apscheduler (>=3.11.0,<4.0.0)",
+    "google-api-python-client (>=2.181.0,<3.0.0)",
+    "google-auth (>=2.40.3,<3.0.0)"
+]
+
+[tool.poetry]
+packages = [
+    { include = "app" }
+]
+
+[tool.poetry.scripts]
+start = "app.run:main"
+test-job = "app.tests.job_db:test"
+download-docs = "app.scripts.download_documents:process_item"
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
