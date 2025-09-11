@@ -11,7 +11,8 @@ class JobRepository:
         job_dict = job.dict()
         job_dict.update({
             "status": "RUNNING",
-            "created_at": datetime.utcnow()
+            "created_at": datetime.utcnow(),
+            "executions": []      
         })
         result = await self.db.jobs.insert_one(job_dict)
         job_dict["_id"] = str(result.inserted_id)
@@ -77,3 +78,5 @@ class JobRepository:
         except Exception as exc:
             print(f"❌ Erreur update_job sur {item_id} : {exc}")
             raise
+def get_repo():
+    return JobRepository()

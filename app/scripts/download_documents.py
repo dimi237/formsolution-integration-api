@@ -40,16 +40,16 @@ async def fetch_item(client: httpx.AsyncClient, item_id: str):
         return resp.json()
     except httpx.ConnectTimeout:
         print(f"⏱ Erreur : délai de connexion dépassé pour {url}")
-        handle_error(item_id, httpx.ConnectTimeout, 'FETCH_ITEM')
+        await handle_error(item_id, httpx.ConnectTimeout, 'FETCH_ITEM')
     except httpx.ConnectError:
         print(f"❌ Erreur : impossible de se connecter à {url}")
-        handle_error(item_id, httpx.ConnectError, 'FETCH_ITEM')
+        await handle_error(item_id, httpx.ConnectError, 'FETCH_ITEM')
     except httpx.HTTPStatusError as exc:
         print(f"⚠️ Erreur HTTP {exc.response.status_code} pour {url} : {exc.response.text[:200]}")
-        handle_error(item_id, exc, 'FETCH_ITEM')
+        await handle_error(item_id, exc, 'FETCH_ITEM')
     except Exception as exc:
         print(f"❗ Erreur inattendue pour {url} : {exc}")
-        handle_error(item_id, exc, 'FETCH_ITEM')
+        await handle_error(item_id, exc, 'FETCH_ITEM')
         
 async def download_file(client: httpx.AsyncClient, url: str, dest_path: Path):
     resp = await client.get(url)
@@ -60,18 +60,17 @@ async def download_file(client: httpx.AsyncClient, url: str, dest_path: Path):
 
 async def main(item_id: str):
     async with httpx.AsyncClient(timeout=10.0,auth=(settings.API_USERNAME, settings.API_PASSWORD)) as client:
-        start_execution(item_id)
+        await start_execution(item_id)
         data = await fetch_item(client, item_id)
         if data:
             try:
-                if data.get("workflowStatus") != "VALIDATION":
-                    print(f"❌ Item {item_id} ignoré (workflowStatus != VALIDATION)")
+                if data.get("workflowStatus") != "DONE":
+                    print(f"❌ Item {item_id} ignoré (workflowStatus != DONE)")
                     return
-
                 item_name = data.get("application").get("name", f"item_{item_id}")
                 base_dir = Path(settings.DOWNLOAD_DIR) / item_name
                 base_dir.mkdir(parents=True, exist_ok=True)
-                update_execution(item_id, "DOWNLOAD_DOCUMENTS")
+                await update_execution(item_id, "DOWNLOAD_DOCUMENTS")
                 tasks = []
                 for doc in data.get("documents", []):
                     doc_uuid = doc["uuid"]
@@ -85,7 +84,7 @@ async def main(item_id: str):
                 await upload_folder_and_files_to_drive(item_id, item_name)
             except Exception as exc:
                 print(f"❌ Impossible de sauvegarder le fichier  : {exc}")
-                handle_error(item_id, exc, 'SAVE_FILE')
+                await handle_error(item_id, exc, 'SAVE_FILE')
 
 def process_item():
     try:
@@ -93,12 +92,12 @@ def process_item():
         asyncio.run(main(item_id))
     except Exception as exc:
         print("❌ Erreur critique lors du téléchargement :", exc)
-        handle_error(item_id, exc, 'PROCESS_ITEM')
 async def process_item_cron(item_id):
     try:
         await main(item_id)
     except Exception as exc:
         print("❌ Erreur critique lors du téléchargement :", exc)
+        await handle_error(item_id, exc, 'PROCESS_ITEM')
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

@@ -5,7 +5,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from app.settings import Settings
-from app.repositories.job_repository import JobRepository
+from app.repositories.job_repository import get_repo
 from app.models.job_model import JobInDB
 from app.utils.handle_execution import finish_execution, handle_error, update_execution
 
@@ -22,7 +22,7 @@ async def upload_folder_and_files_to_drive(item_id: str, folder_name:str):
     upload le dossier sur Google Drive,
     puis supprime le dossier local et met à jour le statut du job.
     """
-    repo = JobRepository()
+    repo = get_repo()
     job: JobInDB = await repo.get_by_item_id(item_id)
 
     if not job:
@@ -88,16 +88,17 @@ async def upload_folder_and_files_to_drive(item_id: str, folder_name:str):
                     print(f"✅ {filename} uploadé, ID : {file.get('id')}")
                 except Exception as e:
                     print(f"❌ Erreur upload {filename} : {e}")
-                    handle_error(item_id, e, f"UPLOAD:{filename}")
+                    await handle_error(item_id, e, f"UPLOAD:{filename}")
                     
-        update_execution(item_id, "UPLOAD_DOCUMENTS", {filesUploaded})
-
+        await update_execution(item_id, "UPLOAD_DOCUMENTS", {
+            "filesUploaded": filesUploaded
+        })
         # ✅ Suppression du dossier local
         shutil.rmtree(folder_path)
         print(f"🗑️ Dossier {folder_path} supprimé.")        
-        finish_execution(item_id)
+        await finish_execution(item_id)
         print(f"✅ Job {item_id} passé en statut CLOSED.")
 
     except Exception as e:
         print(f"❌ Erreur dans upload_folder_and_files_to_drive : {e}")
-        handle_error(item_id, e, 'UPLOAD_TO_DRIVE')
+        await handle_error(item_id, e, 'UPLOAD_TO_DRIVE')

@@ -1,12 +1,12 @@
 # app/utils/execution_handler.py
 from datetime import datetime
 from app.core.scheduler import get_scheduler
-from app.repositories.job_repository import JobRepository
+from app.repositories.job_repository import JobRepository, get_repo
 
-repo = JobRepository()
 
 
 async def start_execution(item_id: str):
+    repo = get_repo()
     """
     Démarre une nouvelle exécution : 
     - termine celle en cours (current=false, finishedAt=now)
@@ -50,6 +50,8 @@ async def finish_execution(item_id: str, status: str = "CLOSED"):
     Termine l’exécution courante en ajoutant finishedAt
     et en mettant à jour le statut du job.
     """
+    repo = get_repo()
+    
     try:
         # ✅ Pause du job dans le scheduler
         scheduler = get_scheduler()
@@ -85,6 +87,7 @@ async def handle_error(item_id: str, exc: Exception, state: str):
         "message": str(exc),
         "timestamp": datetime.utcnow()
     }
+    repo = get_repo()
 
     try:
         result = await repo.update_job(
@@ -103,29 +106,44 @@ async def handle_error(item_id: str, exc: Exception, state: str):
         print(f"❌ Impossible de mettre à jour le job {item_id} : {repo_exc}")
 
 async def update_execution(self, item_id: str, current_state: str = None, metadata: dict = None):
-        update_query = {}
-        if current_state:
-            update_query["executions.$[exec].currentState"] = current_state
+    """
+    Met à jour l'exécution courante d'un job.
+    - current_state : nouveau state
+    - metadata : dictionnaire flexible pour ajouter des infos (liste, dict, str, etc.)
+    """
+    update_query = {}
+    repo = get_repo()
 
-        if metadata:
-            for key, value in metadata.items():
-                update_query[f"executions.$[exec].metadata.{key}"] = value
+    # Mise à jour du state si fourni
+    if current_state:
+        update_query["executions.$[exec].currentState"] = current_state
 
-        if not update_query:
-            print(f"⚠️ Aucun champ à mettre à jour pour job {item_id}")
-            return None
+    # Mise à jour des champs metadata si fourni
+    if metadata:
+        if not isinstance(metadata, dict):
+            raise ValueError(f"metadata doit être un dict, reçu {type(metadata)}")
+        for key, value in metadata.items():
+            # On ne touche pas aux clés non-string
+            if not isinstance(key, str):
+                print(f"⚠️ Ignoring non-string metadata key: {key}")
+                continue
+            update_query[f"executions.$[exec].metadata.{key}"] = value
 
-        try:
-            result = await repo.update_job(
-                item_id,
-                {"$set": update_query},
-                array_filters=[{"exec.current": True}]
-            )
-            if result.modified_count > 0:
-                print(f"✅ Execution courante mise à jour pour {item_id} ({update_query})")
-            else:
-                print(f"⚠️ Aucun job {item_id} trouvé avec une exécution courante.")
-            return result
-        except Exception as exc:
-            print(f"❌ Erreur update_execution sur {item_id} : {exc}")
-            raise
+    if not update_query:
+        print(f"⚠️ Aucun champ à mettre à jour pour job {item_id}")
+        return None
+
+    try:
+        result = await repo.update_job(
+            item_id,
+            {"$set": update_query},
+            array_filters=[{"exec.current": True}]
+        )
+        if result.modified_count > 0:
+            print(f"✅ Execution courante mise à jour pour {item_id} ({update_query})")
+        else:
+            print(f"⚠️ Aucun job {item_id} trouvé avec une exécution courante.")
+        return result
+    except Exception as exc:
+        print(f"❌ Erreur update_execution sur {item_id} : {exc}")
+        raise
