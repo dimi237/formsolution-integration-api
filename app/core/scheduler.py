@@ -40,6 +40,10 @@ class Scheduler:
         if job:
             job.resume()
             logger.info(f"Job {job_id} relancé")
+            
+    def get_job(self, job_id: str):
+        return self.scheduler.get_job(job_id)
+    
 
 # provider
 _scheduler_instance: Scheduler | None = None

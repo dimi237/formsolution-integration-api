@@ -1,5 +1,4 @@
 from typing import Optional, List
-
 from fastapi import Depends
 from app.repositories.job_repository import JobRepository
 from app.core.scheduler import Scheduler, get_scheduler
@@ -19,6 +18,8 @@ class JobService:
         """
         Crée le job en DB et le planifie dans le scheduler
         """
+        if await self.repo.exists(job_data.item_id):
+            raise ValueError(f"Job avec item_id {job_data.item_id} existe déjà.")
         # 1️⃣ Sauvegarder en DB
         saved_job = await self.repo.create(job_data)
 
@@ -26,7 +27,7 @@ class JobService:
         self.scheduler.add_job(
             job_id=saved_job.item_id,
             func=process_item_cron,
-            args=[saved_job.item_id, saved_job.folder_id],
+            args=[saved_job.item_id],
             trigger="interval",
             seconds=saved_job.frequency  # fréquence en secondes
         )
@@ -36,12 +37,22 @@ class JobService:
     async def pause_job(self, item_id: str) -> Optional[JobInDB]:
         """Met le job en pause"""
         self.scheduler.pause_job(item_id)
-        return await self.repo.update_status(item_id, "paused")
+        return await self.repo.update_status(item_id, "PAUSED")
 
     async def resume_job(self, item_id: str) -> Optional[JobInDB]:
         """Relance le job"""
-        self.scheduler.resume_job(item_id)
-        return await self.repo.update_status(item_id, "running")
+        if self.scheduler.get_job(item_id):
+           self.scheduler.resume_job(item_id)
+        else:
+            job = await self.repo.get_by_item_id(item_id)
+            self.scheduler.add_job(
+            job_id=job.item_id,
+            func=process_item_cron,
+            args=[job.item_id],
+            trigger="interval",
+            seconds=job.frequency
+        )
+        return await self.repo.update_status(item_id, "RUNNING")
 
     async def delete_job(self, item_id: str) -> Optional[JobInDB]:
         """Supprime le job du scheduler et de la DB"""

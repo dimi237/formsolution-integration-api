@@ -3,8 +3,9 @@ import asyncio
 import httpx
 from pathlib import Path
 from dotenv import load_dotenv
-from app.scripts.upload import upload_folder_and_files_to_drive
-from app.settings import Settings 
+from app.scripts.drive import upload_folder_and_files_to_drive
+from app.settings import Settings
+from app.utils.handle_execution import handle_error, start_execution, update_execution 
 
 load_dotenv() 
 
@@ -39,12 +40,16 @@ async def fetch_item(client: httpx.AsyncClient, item_id: str):
         return resp.json()
     except httpx.ConnectTimeout:
         print(f"⏱ Erreur : délai de connexion dépassé pour {url}")
+        handle_error(item_id, httpx.ConnectTimeout, 'FETCH_ITEM')
     except httpx.ConnectError:
         print(f"❌ Erreur : impossible de se connecter à {url}")
+        handle_error(item_id, httpx.ConnectError, 'FETCH_ITEM')
     except httpx.HTTPStatusError as exc:
         print(f"⚠️ Erreur HTTP {exc.response.status_code} pour {url} : {exc.response.text[:200]}")
+        handle_error(item_id, exc, 'FETCH_ITEM')
     except Exception as exc:
         print(f"❗ Erreur inattendue pour {url} : {exc}")
+        handle_error(item_id, exc, 'FETCH_ITEM')
         
 async def download_file(client: httpx.AsyncClient, url: str, dest_path: Path):
     resp = await client.get(url)
@@ -53,10 +58,10 @@ async def download_file(client: httpx.AsyncClient, url: str, dest_path: Path):
         f.write(resp.content)
     print(f"✅ Fichier téléchargé : {dest_path}")
 
-async def main(item_id: str, folder_id:str):
+async def main(item_id: str):
     async with httpx.AsyncClient(timeout=10.0,auth=(settings.API_USERNAME, settings.API_PASSWORD)) as client:
+        start_execution(item_id)
         data = await fetch_item(client, item_id)
-        # print(data)
         if data:
             try:
                 if data.get("workflowStatus") != "VALIDATION":
@@ -66,7 +71,7 @@ async def main(item_id: str, folder_id:str):
                 item_name = data.get("application").get("name", f"item_{item_id}")
                 base_dir = Path(settings.DOWNLOAD_DIR) / item_name
                 base_dir.mkdir(parents=True, exist_ok=True)
-
+                update_execution(item_id, "DOWNLOAD_DOCUMENTS")
                 tasks = []
                 for doc in data.get("documents", []):
                     doc_uuid = doc["uuid"]
@@ -77,9 +82,10 @@ async def main(item_id: str, folder_id:str):
                         tasks.append(download_file(client, file_url, dest_path))
 
                 await asyncio.gather(*tasks)
-                upload_folder_and_files_to_drive(folder_id, item_name)
+                await upload_folder_and_files_to_drive(item_id, item_name)
             except Exception as exc:
                 print(f"❌ Impossible de sauvegarder le fichier  : {exc}")
+                handle_error(item_id, exc, 'SAVE_FILE')
 
 def process_item():
     try:
@@ -87,9 +93,10 @@ def process_item():
         asyncio.run(main(item_id))
     except Exception as exc:
         print("❌ Erreur critique lors du téléchargement :", exc)
-def process_item_cron(item_id, folder_id):
+        handle_error(item_id, exc, 'PROCESS_ITEM')
+async def process_item_cron(item_id):
     try:
-        asyncio.run(main(item_id, folder_id))
+        await main(item_id)
     except Exception as exc:
         print("❌ Erreur critique lors du téléchargement :", exc)
 

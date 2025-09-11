@@ -40,6 +40,7 @@ class JobController:
             await service.resume_job(item_id)
             return {"message": f"Job {item_id} resumed"}
         except Exception as e:
+            print(e)
             raise HTTPException(status_code=404, detail=str(e))
 
     # Endpoint DELETE /jobs/{item_id}

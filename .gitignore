@@ -1,3 +1,8 @@
 cred.json
 .env
 /downloads
+./downloads
+./downloads/
+/downloads/
+downloads/
+downloads

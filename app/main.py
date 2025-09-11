@@ -4,12 +4,14 @@ from app.core.db import connect_to_mongo, close_mongo_connection
 from contextlib import asynccontextmanager
 
 from app.core.scheduler import init_scheduler
+from app.scripts.restore import restore_running_jobs
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     await connect_to_mongo()
     init_scheduler()
+    await restore_running_jobs() 
     yield
     # Shutdown
     await close_mongo_connection()
