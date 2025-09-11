@@ -8,3 +8,5 @@ COPY pyproject.toml poetry.lock* /code/
 RUN poetry install --no-root
 
 COPY . /code
+
+https://codeshare.io/ayPMWw
