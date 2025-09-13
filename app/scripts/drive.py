@@ -7,6 +7,7 @@ from googleapiclient.http import MediaFileUpload
 from app.settings import Settings
 from app.repositories.job_repository import get_repo
 from app.models.job_model import JobInDB
+from app.utils.datetime import now_timestamp
 from app.utils.handle_execution import finish_execution, handle_error, update_execution
 
 load_dotenv()
@@ -47,13 +48,13 @@ async def upload_folder_and_files_to_drive(item_id: str, folder_name:str):
         # Création du dossier sur Google Drive
         print(f"📂 Création du dossier '{folder_name}' sur Google Drive...")
         file_metadata = {
-            'name': folder_name,
+            'name': f'{folder_name}_{now_timestamp()}',
             'parents': [folder_id],
             'mimeType': 'application/vnd.google-apps.folder'
         }
         folder = service.files().create(
             body=file_metadata,
-            fields='id',
+            fields='id',  
             supportsAllDrives=True
         ).execute()
 
