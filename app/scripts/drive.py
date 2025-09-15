@@ -5,7 +5,8 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from app.settings import Settings
-from app.repositories.job_repository import get_repo
+from app.repositories.job_repository import get_repo as get_job_repo
+from app.repositories.dossier_repository import get_repo
 from app.models.job_model import JobInDB
 from app.utils.datetime import now_timestamp
 from app.utils.handle_execution import finish_execution, handle_error, update_execution
@@ -17,17 +18,20 @@ SCOPES = ['https://www.googleapis.com/auth/drive']
 settings = Settings()
 
 
-async def upload_folder_and_files_to_drive(item_id: str, folder_name:str):
+async def upload_folder_and_files_to_drive(uuid: str, folder_name:str):
     """
-    Récupère le job en DB avec item_id,
+    Récupère le job en DB avec uuid,
     upload le dossier sur Google Drive,
     puis supprime le dossier local et met à jour le statut du job.
     """
     repo = get_repo()
-    job: JobInDB = await repo.get_by_item_id(item_id)
+    job_repo = get_job_repo()
+    dossier = await repo.get_by_uuid(uuid)
+    job = await job_repo.get_by_item_id(dossier.app_name) if dossier else None
+    print(f"🔄 Début upload_folder_and_files_to_drive pour {dossier}...")
 
-    if not job:
-        print(f"❌ Job {item_id} introuvable.")
+    if not dossier:
+        print(f"❌ Job de  {uuid} introuvable.")
         return
 
     folder_id = job.folder_id
@@ -86,20 +90,19 @@ async def upload_folder_and_files_to_drive(item_id: str, folder_name:str):
                         'folder_id':new_drive_folder_id
                         
                     })
+                    await repo.update_file_upload(uuid, filename, file.get('id'))
                     print(f"✅ {filename} uploadé, ID : {file.get('id')}")
                 except Exception as e:
                     print(f"❌ Erreur upload {filename} : {e}")
-                    await handle_error(item_id, e, f"UPLOAD:{filename}")
+                    await handle_error(uuid, e, f"UPLOAD:{filename}")
                     
-        await update_execution(item_id, "UPLOAD_DOCUMENTS", {
-            "filesUploaded": filesUploaded
-        })
+        # await update_execution(uuid, "UPLOAD_DOCUMENTS", filesUploaded)
         # ✅ Suppression du dossier local
         shutil.rmtree(folder_path)
         print(f"🗑️ Dossier {folder_path} supprimé.")        
-        await finish_execution(item_id)
-        print(f"✅ Job {item_id} passé en statut CLOSED.")
+        await finish_execution(job.item_id)
+        print(f"✅ Déùarche {uuid} passé en statut CLOSED.")
 
     except Exception as e:
         print(f"❌ Erreur dans upload_folder_and_files_to_drive : {e}")
-        await handle_error(item_id, e, 'UPLOAD_TO_DRIVE')
+        await handle_error(uuid, e, 'UPLOAD_TO_DRIVE')

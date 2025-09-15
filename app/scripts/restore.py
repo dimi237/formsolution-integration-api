@@ -1,6 +1,6 @@
 from app.repositories.job_repository import JobRepository
 from app.core.scheduler import get_scheduler
-from app.scripts.download_documents import process_item_cron
+from app.scripts.fetch_files import process_files
 
 async def restore_running_jobs():
     """
@@ -15,7 +15,7 @@ async def restore_running_jobs():
         try:
             scheduler.add_job(
                 job_id=job.item_id,
-                func=process_item_cron,
+                func=process_files,
                 args=[job.item_id],
                 trigger="interval",
                 seconds=job.frequency

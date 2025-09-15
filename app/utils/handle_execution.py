@@ -1,12 +1,16 @@
 # app/utils/execution_handler.py
 from datetime import datetime
+from typing import List
 from app.core.scheduler import get_scheduler
-from app.repositories.job_repository import JobRepository, get_repo
+from app.models.dossier_model import FileMetadata
+from app.repositories.job_repository import get_repo
+from app.repositories.dossier_repository import get_repo as get_dossier_repo
 
 
 
-async def start_execution(item_id: str):
+async def start_execution(uuid: str):
     repo = get_repo()
+    dossier_repo = get_dossier_repo()
     """
     Démarre une nouvelle exécution : 
     - termine celle en cours (current=false, finishedAt=now)
@@ -14,6 +18,11 @@ async def start_execution(item_id: str):
     """
     try:
         # Terminer toute exécution encore "courante"
+        dossier = await dossier_repo.get_by_uuid(uuid)
+        if not dossier:
+            print(f"❌ Aucun dossier trouvé avec le uuid {uuid}.")
+            return
+        item_id = dossier.app_name
         await repo.update_job(
             item_id,
             {
@@ -35,17 +44,17 @@ async def start_execution(item_id: str):
         }
 
         await repo.update_job(
-            item_id,
+            uuid,
             {"$push": {"executions": new_execution}}
         )
 
-        print(f"🚀 Nouvelle exécution démarrée pour job {item_id}")
+        print(f"🚀 Nouvelle exécution démarrée pour job {uuid}")
 
     except Exception as exc:
-        print(f"❌ Impossible de démarrer une exécution pour {item_id} : {exc}")
+        print(f"❌ Impossible de démarrer une exécution pour {uuid} : {exc}")
 
 
-async def finish_execution(item_id: str, status: str = "CLOSED"):
+async def finish_execution(item_id: str):
     """
     Termine l’exécution courante en ajoutant finishedAt
     et en mettant à jour le statut du job.
@@ -53,9 +62,7 @@ async def finish_execution(item_id: str, status: str = "CLOSED"):
     repo = get_repo()
     
     try:
-        # ✅ Pause du job dans le scheduler
-        scheduler = get_scheduler()
-        scheduler.pause_job(job_id=item_id)
+
         print(f"⏸️ Job {item_id} mis en pause dans le scheduler.")
         result = await repo.update_job(
             item_id,
@@ -63,7 +70,6 @@ async def finish_execution(item_id: str, status: str = "CLOSED"):
                 "$set": {
                     "executions.$[exec].current": False,
                     "executions.$[exec].finishedAt": datetime.utcnow(),
-                    "status": status
                 }
             },
             array_filters=[{"exec.current": True}]
@@ -72,13 +78,13 @@ async def finish_execution(item_id: str, status: str = "CLOSED"):
         if result.modified_count == 0:
             print(f"⚠️ Aucun job {item_id} trouvé avec une exécution courante.")
         else:
-            print(f"✅ Exécution terminée pour job {item_id}, statut={status}")
+            print(f"✅ Exécution terminée pour job {item_id}")
 
     except Exception as exc:
         print(f"❌ Impossible de terminer l’exécution pour {item_id} : {exc}")
 
 
-async def handle_error(item_id: str, exc: Exception, state: str):
+async def handle_error(uuid: str, exc: Exception, state: str):
     """
     Ajoute une erreur dans l’exécution courante.
     """
@@ -87,8 +93,16 @@ async def handle_error(item_id: str, exc: Exception, state: str):
         "message": str(exc),
         "timestamp": datetime.utcnow()
     }
+    item_id = ''
     repo = get_repo()
-
+    dossier_repo = get_dossier_repo()
+    dossier = await dossier_repo.get_by_uuid(uuid)
+    if dossier:
+        item_id = dossier.app_name
+    else:
+        item_id = uuid  # Fallback si le dossier n'est pas trouvé
+    if not item_id:
+        return
     try:
         result = await repo.update_job(
             item_id,
@@ -105,7 +119,7 @@ async def handle_error(item_id: str, exc: Exception, state: str):
     except Exception as repo_exc:
         print(f"❌ Impossible de mettre à jour le job {item_id} : {repo_exc}")
 
-async def update_execution(self, item_id: str, current_state: str = None, metadata: dict = None):
+async def update_execution(self, uuid: str, current_state: str = None, files: dict = None):
     """
     Met à jour l'exécution courante d'un job.
     - current_state : nouveau state
@@ -118,32 +132,46 @@ async def update_execution(self, item_id: str, current_state: str = None, metada
     if current_state:
         update_query["executions.$[exec].currentState"] = current_state
 
-    # Mise à jour des champs metadata si fourni
-    if metadata:
-        if not isinstance(metadata, dict):
-            raise ValueError(f"metadata doit être un dict, reçu {type(metadata)}")
-        for key, value in metadata.items():
-            # On ne touche pas aux clés non-string
-            if not isinstance(key, str):
-                print(f"⚠️ Ignoring non-string metadata key: {key}")
-                continue
-            update_query[f"executions.$[exec].metadata.{key}"] = value
-
-    if not update_query:
-        print(f"⚠️ Aucun champ à mettre à jour pour job {item_id}")
-        return None
-
     try:
         result = await repo.update_job(
-            item_id,
+            uuid,
             {"$set": update_query},
-            array_filters=[{"exec.current": True}]
+            array_filters=[{"executions.$[exec].current": True}]
         )
         if result.modified_count > 0:
-            print(f"✅ Execution courante mise à jour pour {item_id} ({update_query})")
+            print(f"✅ Execution courante mise à jour pour {uuid} ({update_query})")
         else:
-            print(f"⚠️ Aucun job {item_id} trouvé avec une exécution courante.")
+            print(f"⚠️ Aucun job {uuid} trouvé avec une exécution courante.")
         return result
     except Exception as exc:
-        print(f"❌ Erreur update_execution sur {item_id} : {exc}")
+        print(f"❌ Erreur update_execution sur {uuid} : {exc}")
+        raise
+async def add_files_on_dossier(uuid: str, files: List[FileMetadata] ):
+    """
+    Ajoute un fichier téléchargé dans le dossier.
+    """
+    if files is None:
+        return
+    repo = get_dossier_repo()
+    try:
+        result = await repo.add_files(uuid, files)
+        if result:
+            print(f"✅ Fichiers ajouté au dossier {uuid}.")
+        else:
+            print(f"⚠️ Aucun dossier trouvé avec le uuid {uuid}.")
+        return result
+    except Exception as exc:
+        print(f"❌ Impossible d'ajouter des fichers au dossier {uuid} : {exc}")
+        raise
+async def update_downloaded_file(uuid: str, filename: str):
+    repo = get_dossier_repo()
+    try:
+        result = await repo.update_file_download(uuid, filename)
+        if result:
+            print(f"✅ Fichier {filename} mis 0 jour dans le dossier {uuid}.")
+        else:
+            print(f"⚠️ Aucun fichier {filename} trouvé  dans le dossier {uuid}.")
+        return result
+    except Exception as exc:
+        print(f"❌ Impossible de mettre à jour le fichier {filename} dans le dossier dossier {uuid} : {exc}")
         raise

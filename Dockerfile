@@ -9,4 +9,3 @@ RUN poetry install --no-root
 
 COPY . /code
 
-https://codeshare.io/ayPMWw

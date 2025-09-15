@@ -5,7 +5,7 @@ from app.core.scheduler import Scheduler, get_scheduler
 from app.models.job_model import JobCreate, JobInDB
 import logging
 
-from app.scripts.download_documents import process_item_cron
+from app.scripts.fetch_files import process_files
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class JobService:
         # 2️⃣ Ajouter le job au scheduler
         self.scheduler.add_job(
             job_id=saved_job.item_id,
-            func=process_item_cron,
+            func=process_files,
             args=[saved_job.item_id],
             trigger="interval",
             seconds=saved_job.frequency  # fréquence en secondes
@@ -47,7 +47,7 @@ class JobService:
             job = await self.repo.get_by_item_id(item_id)
             self.scheduler.add_job(
             job_id=job.item_id,
-            func=process_item_cron,
+            func=process_files,
             args=[job.item_id],
             trigger="interval",
             seconds=job.frequency
