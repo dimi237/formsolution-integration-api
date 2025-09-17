@@ -50,4 +50,8 @@ class JobController:
             return {"message": f"Job {item_id} deleted"}
         except Exception as e:
             raise HTTPException(status_code=404, detail=str(e))
-
+    async def get_job_stats(self, service: JobService = Depends(get_job_service)):
+        try:
+            return await service.get_job_stats()
+        except Exception as e:
+            raise HTTPException(status_code=404, detail=str(e))

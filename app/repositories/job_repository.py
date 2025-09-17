@@ -78,5 +78,26 @@ class JobRepository:
         except Exception as exc:
             print(f"❌ Erreur update_job sur {item_id} : {exc}")
             raise
+    async def get_job_stats(self):
+        pipeline = [
+            {
+                "$group": {
+                    "_id": "$status",
+                    "count": {"$sum": 1}
+                }
+            }
+        ]
+        results = await self.db.jobs.aggregate(pipeline).to_list(length=None)
+
+        stats = {"total": 0, "RUNNING": 0, "PAUSED": 0, "FAILED": 0}
+
+        for r in results:
+            status = r["_id"]
+            count = r["count"]
+            stats["total"] += count
+            if status in stats:
+                stats[status] = count
+
+        return stats
 def get_repo():
     return JobRepository()

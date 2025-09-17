@@ -26,6 +26,7 @@ def create_app() -> FastAPI:
         
     from app.api.v1.job import router as job_router
     from app.api.v1.dossier import router as dossier_router
+    from app.api.v1.stats import router as stat_router
     app.include_router(
         job_router,
         prefix="/api/v1/jobs",
@@ -35,6 +36,11 @@ def create_app() -> FastAPI:
         dossier_router,
         prefix="/api/v1/dossiers",
         tags=["dossiers"]
+)
+    app.include_router(
+        stat_router,
+        prefix="/api/v1/stats",
+        tags=["stats"]
 )
 
     return app

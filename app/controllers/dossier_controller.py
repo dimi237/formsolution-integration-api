@@ -1,5 +1,4 @@
 from fastapi import HTTPException, Depends
-from app.models.dossier_model import DossierInDB
 from app.services.dossier_service import DossierService
 
 class DossierController:

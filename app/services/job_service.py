@@ -62,3 +62,5 @@ class JobService:
     async def list_jobs(self) -> List[JobInDB]:
         """Liste tous les jobs en DB"""
         return await self.repo.get_all()
+    async def get_job_stats(self):
+        return await self.repo.get_job_stats()

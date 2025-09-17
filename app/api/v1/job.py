@@ -12,4 +12,6 @@ router.get("/", response_model=List[JobInDB])(controller.list_jobs)
 router.patch("/{item_id}/pause")(controller.pause_job)
 router.patch("/{item_id}/resume")(controller.resume_job)
 router.delete("/{item_id}")(controller.delete_job)
+router.get("/stats")(controller.get_job_stats)
+
             
