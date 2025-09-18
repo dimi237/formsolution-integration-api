@@ -1,5 +1,8 @@
 from typing import List, Optional
 from datetime import datetime
+
+from pymongo import ReturnDocument
+
 from app.core.db import get_db
 from app.models.job_model import JobInDB, JobCreate
 
@@ -34,7 +37,24 @@ class JobRepository:
             return_document=True
         )
         return result if result else None
-
+    
+    async def update_jobf(self, item_id: str, update: dict, array_filters: list = None):
+        """
+        Met à jour un job avec une requête MongoDB personnalisée.
+        Exemple d'usage : 
+            await repo.update_job(item_id, {"$set": {"status": "CLOSED"}})
+        """
+        query = {"item_id": item_id}
+        try:
+            result = await self.db.jobs.update_one(query, update, array_filters=array_filters)
+            return {
+                "matched_count": result.matched_count,
+                "modified_count": result.modified_count,
+                "acknowledged": result.acknowledged
+            }
+        except Exception as exc:
+            print(f"❌ Erreur update_jobf sur {item_id} : {exc}")
+            raise
     async def delete(self, item_id: str) -> bool:
         result = await self.db.jobs.delete_one({"item_id": item_id})
         return result.deleted_count > 0

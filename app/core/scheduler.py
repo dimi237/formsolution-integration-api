@@ -43,6 +43,8 @@ class Scheduler:
             
     def get_job(self, job_id: str):
         return self.scheduler.get_job(job_id)
+    def reschedule_job(self, job_id: str, trigger: str = "interval", **trigger_args):
+        return self.scheduler.reschedule_job(job_id, trigger=trigger,  **trigger_args)
     
 
 # provider

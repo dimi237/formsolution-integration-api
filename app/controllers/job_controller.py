@@ -21,6 +21,17 @@ class JobController:
                 detail=str(e)
             )
 
+        # Endpoint POST /jobs/
+    async def update_job(self, job_data: JobCreate, id:str, service: JobService = Depends(get_job_service)):
+        try:
+            job = await service.update_job(job_data=job_data, id=id)
+            return job
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
+            )
+
     # Endpoint GET /jobs/
     async def list_jobs(self, service: JobService = Depends(get_job_service)) -> List[JobInDB]:
         jobs = await service.list_jobs()
@@ -53,5 +64,13 @@ class JobController:
     async def get_job_stats(self, service: JobService = Depends(get_job_service)):
         try:
             return await service.get_job_stats()
+        except Exception as e:
+            raise HTTPException(status_code=404, detail=str(e))
+    async def get_job(self, item_id: str, service: JobService = Depends(get_job_service)):
+        try:
+            job = await service.get_job_by_item_id(item_id)
+            if not job:
+                raise HTTPException(status_code=404, detail="Job not found")
+            return job
         except Exception as e:
             raise HTTPException(status_code=404, detail=str(e))

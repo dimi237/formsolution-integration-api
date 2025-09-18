@@ -33,6 +33,17 @@ class JobService:
         )
         logger.info(f"Job {saved_job.item_id} planifié")
         return saved_job
+    async def update_job(self, job_data: JobCreate, id:str) -> JobInDB:
+        saved_job = await self.repo.update_jobf(id, {"$set": job_data.dict()})
+        job = self.scheduler.get_job(job_data.item_id)
+        if job:
+            self.scheduler.reschedule_job(
+            job_id=job_data.item_id,
+            trigger="interval",
+            seconds=job_data.frequency 
+        )
+        
+        return saved_job
 
     async def pause_job(self, item_id: str) -> Optional[JobInDB]:
         """Met le job en pause"""
@@ -64,3 +75,5 @@ class JobService:
         return await self.repo.get_all()
     async def get_job_stats(self):
         return await self.repo.get_job_stats()
+    async def get_job_by_item_id(self,item_id: str ):
+        return await self.repo.get_by_item_id(item_id)

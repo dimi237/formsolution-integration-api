@@ -22,5 +22,5 @@ class DossierService:
     async def mark_file_uploaded(self, uuid: str, filename: str, drive_id: str) -> bool:
         return await self.repo.update_file_upload(uuid, filename, drive_id)
 
-    async def list_dossiers(self, status: Optional[str] = None) -> List[DossierInDB]:
-        return await self.repo.list_dossiers(status)
+    async def list_dossiers(self, status: Optional[str], app_name: Optional[str] = None) -> List[DossierInDB]:
+        return await self.repo.list_dossiers(status = status  ,app_name=app_name)

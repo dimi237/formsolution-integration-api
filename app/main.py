@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from app.core.scheduler import init_scheduler
 from app.scripts.restore import restore_running_jobs
-
+from fastapi.middleware.cors import CORSMiddleware
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
@@ -23,7 +23,18 @@ def create_app() -> FastAPI:
         version=settings.app_version,
         lifespan=lifespan
     )
-        
+    origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     from app.api.v1.job import router as job_router
     from app.api.v1.dossier import router as dossier_router
     from app.api.v1.stats import router as stat_router

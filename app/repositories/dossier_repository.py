@@ -70,10 +70,13 @@ class DossierRepository:
         )
         return result.modified_count > 0
 
-    async def list_dossiers(self, status: Optional[str] = None) -> List[DossierInDB]:
+    async def list_dossiers(self, status: Optional[str], app_name: Optional[str]) -> List[DossierInDB]:
         query = {}
-        if status:
-            query["status"] = status
+        # print('status', status)
+        # if status:
+        #     query["status"] = status
+        if app_name:
+            query["app_name"] = app_name
         cursor = self.collection.find(query)
         return [DossierInDB(**doc) async for doc in cursor]
         
