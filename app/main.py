@@ -4,6 +4,7 @@ from app.core.db import connect_to_mongo, close_mongo_connection
 from contextlib import asynccontextmanager
 
 from app.core.scheduler import init_scheduler
+from app.middlewares.auth_middleware import AuthMiddleware
 from app.scripts.restore import restore_running_jobs
 from fastapi.middleware.cors import CORSMiddleware
 @asynccontextmanager
@@ -35,9 +36,11 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(AuthMiddleware)
     from app.api.v1.job import router as job_router
     from app.api.v1.dossier import router as dossier_router
     from app.api.v1.stats import router as stat_router
+    from app.api.v1.auth import router as auth_router
     app.include_router(
         job_router,
         prefix="/api/v1/jobs",
@@ -52,6 +55,11 @@ def create_app() -> FastAPI:
         stat_router,
         prefix="/api/v1/stats",
         tags=["stats"]
+)
+    app.include_router(
+        auth_router,
+        prefix="/api/v1/auth",
+        tags=["auth"]
 )
 
     return app
