@@ -1,7 +1,6 @@
 from fastapi.responses import JSONResponse
 import jwt
 from datetime import datetime, timedelta
-from fastapi import HTTPException
 
 SECRET_KEY = "super-secret-key"   # ⚠️ à mettre dans .env
 ALGORITHM = "HS256"
@@ -24,17 +23,17 @@ def verify_token(token: str, expected_type: str):
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         if payload.get("type") != expected_type:
             return JSONResponse(
-                status_code=403,
+                status_code=401,
                 content={"detail": "Invalid token type"}
             )
         return payload
     except jwt.ExpiredSignatureError:
         return JSONResponse(
-                status_code=403,
+                status_code=401,
                 content={"detail": "Token expired"}
             )
     except jwt.PyJWTError:
         return JSONResponse(
-                status_code=403,
+                status_code=401,
                 content={"detail": "Invalid token"}
             )

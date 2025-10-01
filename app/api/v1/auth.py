@@ -8,6 +8,6 @@ router = APIRouter()
 
 controller = AuthController()
 
-router.post("/login")(controller.login)
-router.get("/refresh")(controller.refresh)
+router.post("/login", response_model=TokenResponse)(controller.login)
+router.get("/refresh", response_model=TokenResponse)(controller.refresh)
             

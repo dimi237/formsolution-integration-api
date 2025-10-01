@@ -3,15 +3,37 @@ version: "3.9"
 services:
   # api:
   #   build: .
-  #   command: poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+  #   command: poetry run uvicorn app.main:app --host 0.0.0.0 --port 4000 --reload
   #   volumes:
   #     - .:/code
   #   ports:
-  #     - "8000:8000"
+  #     - "4000:4000"
   #   depends_on:
   #     - mongo
   #   environment:
   #     - MONGO_URL=mongodb://mongo:27017
+
+  api:
+    image: dimi237/doc-transfert-api:1.0.0
+    container_name: api
+    ports:
+      - "4000:4000"
+    depends_on:
+      - mongo
+    environment:
+      - MONGO_URL=mongodb://mongo:27017
+      - APP_NAME=Formsoltion Integration API
+      - BASE_URL=https://citizen-developer.guichet.online/portal/rest
+      - API_USERNAME=Dimitri_Signe
+      - API_PASSWORD=Dimitri_Signe
+      - DOWNLOAD_DIR=./downloads
+  front:
+    image: dimi237/doc-transfert-front:1.0.0
+    container_name: front
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
 
   mongo:
     image: mongo:6.0
